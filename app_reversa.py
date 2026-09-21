@@ -30,9 +30,9 @@ def carregar_dados():
       "Motivo",
       "Itens",
       "Status",
-      "Data_Autorizacao",
+      "Data_Inicio_Coleta",
       "Entregador_Responsavel",
-      "Observacao_Transportadora",
+      "Evidencia_Anexo",
       "Data_Conclusao",
   ]
 
@@ -63,28 +63,31 @@ st.markdown(
     """
     <div style="background-color: #0f172a; padding: 20px; border-radius: 8px; border-left: 6px solid #f59e0b;">
         <h2 style="color: white; margin: 0; font-family: sans-serif;">🏭 RMC MARIANO | Gestão de Logística Reversa & WMS</h2>
-        <p style="color: #94a3b8; margin: 5px 0 0 0; font-size: 14px;">Controle de fluxo de coletas, rastreio de transportadora e conferência física no CD.</p>
+        <p style="color: #94a3b8; margin: 5px 0 0 0; font-size: 14px;">Controle de fluxo de coletas, rastreio de transportadora e monitoramento de status.</p>
     </div>
 """,
     unsafe_allow_html=True,
 )
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Criação das Abas Principais com nomenclaturas de Supply Chain
-aba_gestor, aba_transportadora, aba_relatorios, aba_termo = st.tabs(
-    [
-        "📋 1. Painel Operacional (CD & Cadastro)",
-        "🚚 2. Dock / Portal da Transportadora",
-        "📊 3. Dashboard & Indicadores",
-        "📄 4. Emissão de Termos (Word)",
-    ]
-)
+# Criação das Abas Principais
+aba_gestor, aba_transportadora, aba_analise, aba_relatorios, aba_termo = st.tabs([
+    "📋 1. Painel Operacional (Cadastro & Histórico)",
+    "🚚 2. Portal da Transportadora",
+    "🔍 3. Analisar Pedidos Finalizados",
+    "📊 4. Dashboard & Indicadores",
+    "📄 5. Emissão de Termos (Word)",
+])
 
 # ==========================================
-# ABA 1: PAINEL DO LÍDER (CADASTRO & BAIXA)
+# ABA 1: PAINEL OPERACIONAL (CADASTRO E HISTÓRICO DE STATUS)
 # ==========================================
 with aba_gestor:
   st.subheader("📝 Abertura de Ordem de Coleta Reversa")
+  st.markdown(
+      "Cadastre a ordem de reversa. O pedido será enviado diretamente para a"
+      " transportadora realizar a verificação e coleta."
+  )
 
   with st.form("form_cadastro_reversa", clear_on_submit=True):
     col1, col2, col3 = st.columns(3)
@@ -106,12 +109,7 @@ with aba_gestor:
       )
       motivo = st.selectbox(
           "Motivo da Ocorrência",
-          [
-              "Produto Avariado",
-              "Caixa Trocada",
-              "Item Faltante no Pedido",
-              "Desistência / Erro Operacional",
-          ],
+          ["Produto Avariado", "Troca de Caixa", "Desistência do Pedido"],
       )
 
     itens = st.text_area(
@@ -120,7 +118,8 @@ with aba_gestor:
     )
 
     submitted = st.form_submit_button(
-        "🚀 Emitir Ordem e Liberar para Coleta", use_container_width=True
+        "🚀 Emitir Ordem e Enviar para Transportadora",
+        use_container_width=True,
     )
 
     if submitted:
@@ -140,10 +139,10 @@ with aba_gestor:
             "Transportadora": str(transportadora),
             "Motivo": str(motivo),
             "Itens": str(itens),
-            "Status": "🟡 Aguardando Coleta",
-            "Data_Autorizacao": "",
+            "Status": "🟡 Aguardando Verificação",
+            "Data_Inicio_Coleta": "",
             "Entregador_Responsavel": "",
-            "Observacao_Transportadora": "",
+            "Evidencia_Anexo": "",
             "Data_Conclusao": "",
         }
 
@@ -153,79 +152,27 @@ with aba_gestor:
         )
         salvar_dados(st.session_state.df_reversas)
         st.success(
-            f"✅ Ordem **{novo_id}** gerada e disponibilizada para o operador"
-            " logístico!"
+            f"✅ Ordem **{novo_id}** gerada com sucesso e enviada para o portal"
+            " da transportadora!"
         )
 
   st.markdown("---")
   st.subheader(
-      "📥 Conferência de Recebimento no CD (Baixa de Cargas Retornadas)"
+      "📊 Histórico Geral de Status de Cada Pedido (Acompanhamento)"
+  )
+  st.markdown(
+      "Visualize abaixo o andamento de todas as ordens abertas e concluídas."
   )
 
   df_atual = st.session_state.df_reversas
   if not df_atual.empty:
-    coletados_para_baixar = df_atual[
-        df_atual["Status"] == "🟢 Coletado / Autorizado"
-    ]
-
-    if not coletados_para_baixar.empty:
-      st.markdown(
-          "#### ⚡ Lotes Coletados em Trânsito (Aguardando conferência física"
-          " no CD):"
-      )
-      for index, row in coletados_para_baixar.iterrows():
-        with st.container(border=True):
-          col_c1, col_c2 = st.columns([3, 1])
-          with col_c1:
-            st.markdown(
-                f"**ID:** `{row['ID_Devolucao']}` | **Pedido:**"
-                f" `{row['Pedido']}` | **NF:** `{row['NF']}`"
-            )
-            st.markdown(
-                f"👤 **Cliente:** {row['Cliente']} ({row['Cidade']})"
-            )
-            st.markdown(
-                f"🚚 **Motorista:** `{row['Entregador_Responsavel']}` em"
-                f" `{row['Data_Autorizacao']}`"
-            )
-            st.markdown(f"📦 **Itens Esperados:** {row['Itens']}")
-          with col_c2:
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button(
-                "🏁 Validar & Dar Entrada no CD",
-                key=f"finalizar_{row['ID_Devolucao']}",
-            ):
-              idx_real = st.session_state.df_reversas[
-                  st.session_state.df_reversas["ID_Devolucao"]
-                  == row["ID_Devolucao"]
-              ].index[0]
-              st.session_state.df_reversas.at[
-                  idx_real, "Status"
-              ] = "✅ Concluído / Resolvido no CD"
-              st.session_state.df_reversas.at[
-                  idx_real, "Data_Conclusao"
-              ] = datetime.now().strftime("%d/%m/%Y %H:%M")
-              salvar_dados(st.session_state.df_reversas)
-              st.success(
-                  "Carga validada e processada no estoque com sucesso!"
-              )
-              st.rerun()
-    else:
-      st.info(
-          "ℹ️ Não há cargas em trânsito aguardando conferência no CD no"
-          " momento."
-      )
-
-    st.markdown("---")
-    st.subheader("📊 Histórico Geral & Auditoria de Cargas")
     filtro_status = st.selectbox(
         "Filtrar por Status Operacional",
         [
             "Todos",
-            "🟡 Aguardando Coleta",
-            "🟢 Coletado / Autorizado",
-            "✅ Concluído / Resolvido no CD",
-            "🔴 Com Ocorrência/Problema",
+            "🟡 Aguardando Verificação",
+            "🚚 Coleta Iniciada",
+            "✅ Finalizado pela Transportadora",
         ],
     )
     if filtro_status != "Todos":
@@ -236,11 +183,6 @@ with aba_gestor:
     st.dataframe(df_filtrado, use_container_width=True)
 
     st.markdown("### 🗑️ Gestão de Registros (Exclusão Direta)")
-    st.markdown(
-        "*(Clique na lixeira para remover definitivamente um registro do"
-        " sistema)*"
-    )
-
     if not df_filtrado.empty:
       for index, row in df_filtrado.iterrows():
         col_reg1, col_reg2, col_reg3 = st.columns([1.5, 4, 1])
@@ -248,7 +190,8 @@ with aba_gestor:
           st.text(row["ID_Devolucao"])
         with col_reg2:
           st.text(
-              f"Ped: {row['Pedido']} | Cliente: {row['Cliente']} ({row['Status']})"
+              f"Ped: {row['Pedido']} | Cliente: {row['Cliente']} ("
+              f"{row['Status']})"
           )
         with col_reg3:
           if st.button("🗑️ Excluir", key=f"lixeira_{row['ID_Devolucao']}"):
@@ -261,7 +204,6 @@ with aba_gestor:
             st.rerun()
     else:
       st.info("Nenhum registro para gerenciar nesta visualização.")
-
   else:
     st.info("Nenhuma ordem de devolução registrada no sistema.")
 
@@ -269,9 +211,12 @@ with aba_gestor:
 # ABA 2: PORTAL DA TRANSPORTADORA
 # ==========================================
 with aba_transportadora:
-  st.subheader("🚚 Portal do Operador Logístico (Transportadora José Augusto)")
+  st.subheader(
+      "🚚 Portal do Operador Logístico (Verificação, Coleta e Envio de Caixa)"
+  )
   st.markdown(
-      "Painel de despacho de motoristas para recolhimento nas rotas."
+      "Gerencie os pedidos aguardando verificação, inicie a coleta com data e"
+      " envie as evidências e a caixa finalizada."
   )
 
   transp_selecionada = "Transportadora José Augusto"
@@ -285,26 +230,28 @@ with aba_transportadora:
   )
 
   if filtro_cidade_transp != "Todas":
-    pendentes = df_transp[
-        (df_transp["Status"] == "🟡 Aguardando Coleta")
+    pendentes_transp = df_transp[
+        (df_transp["Status"] != "✅ Finalizado pela Transportadora")
         & (df_transp["Cidade"] == filtro_cidade_transp)
     ]
   else:
-    pendentes = df_transp[df_transp["Status"] == "🟡 Aguardando Coleta"]
+    pendentes_transp = df_transp[
+        df_transp["Status"] != "✅ Finalizado pela Transportadora"
+    ]
 
   st.markdown("---")
   st.markdown(
-      f"### 📦 Ordens Liberadas para Coleta ({len(pendentes)} ordens na fila)"
+      f"### 📦 Ordens Ativas no Painel ({len(pendentes_transp)} ordens)"
   )
 
-  if not pendentes.empty:
-    for index, row in pendentes.iterrows():
+  if not pendentes_transp.empty:
+    for index, row in pendentes_transp.iterrows():
       with st.container(border=True):
         col_a, col_b = st.columns([2.5, 1.5])
         with col_a:
           st.markdown(
-              f"**ID:** `{row['ID_Devolucao']}` | **Emissão:**"
-              f" `{row['Data_Registro']}`"
+              f"**ID:** `{row['ID_Devolucao']}` | **Status Atual:**"
+              f" **{row['Status']}**"
           )
           st.markdown(
               f"📄 **Pedido:** `{row['Pedido']}` | **NF:** `{row['NF']}`"
@@ -314,76 +261,149 @@ with aba_transportadora:
           )
           st.markdown(f"❓ **Motivo:** `{row['Motivo']}`")
           st.markdown(f"📦 **Itens a Coletar:** {row['Itens']}")
+          if row["Data_Inicio_Coleta"]:
+            st.markdown(
+                f"⏱️ **Início da Coleta:** `{row['Data_Inicio_Coleta']}` por"
+                f" `{row['Entregador_Responsavel']}`"
+            )
 
         with col_b:
-          st.markdown("##### ✍️ Check-in de Retirada")
-          nome_entregador = st.text_input(
-              "Motorista Responsável:",
-              key=f"ent_{row['ID_Devolucao']}",
-              placeholder="Nome do motorista",
-          )
+          st.markdown("##### ✍️ Ações da Transportadora")
 
-          if st.button(
-              "✅ Confirmar Retirada", key=f"conf_{row['ID_Devolucao']}"
-          ):
-            if not nome_entregador.strip():
-              st.error("⚠️ Informe o nome do motorista!")
-            else:
+          # Ação 1: Iniciar Coleta
+          if row["Status"] == "🟡 Aguardando Verificação":
+            nome_entregador = st.text_input(
+                "Motorista Responsável:",
+                key=f"ent_{row['ID_Devolucao']}",
+                placeholder="Nome do motorista",
+            )
+            if st.button(
+                "🚀 Iniciar Coleta", key=f"btn_iniciar_{row['ID_Devolucao']}"
+            ):
+              if not nome_entregador.strip():
+                st.error("⚠️ Informe o nome do motorista!")
+              else:
+                idx_real = st.session_state.df_reversas[
+                    st.session_state.df_reversas["ID_Devolucao"]
+                    == row["ID_Devolucao"]
+                ].index[0]
+                st.session_state.df_reversas.at[
+                    idx_real, "Status"
+                ] = "🚚 Coleta Iniciada"
+                st.session_state.df_reversas.at[
+                    idx_real, "Data_Inicio_Coleta"
+                ] = datetime.now().strftime("%d/%m/%Y %H:%M")
+                st.session_state.df_reversas.at[
+                    idx_real, "Entregador_Responsavel"
+                ] = str(nome_entregador).upper()
+                salvar_dados(st.session_state.df_reversas)
+                st.success("Coleta iniciada com sucesso!")
+                st.rerun()
+
+          # Ação 2: Finalizar Pedido com anexo de foto/vídeo quando já iniciada a coleta
+          if row["Status"] == "🚚 Coleta Iniciada":
+            uploaded_file = st.file_uploader(
+                "Anexar Foto ou Vídeo (Evidência):",
+                type=["png", "jpg", "jpeg", "mp4", "mov"],
+                key=f"file_{row['ID_Devolucao']}",
+            )
+
+            if st.button(
+                "✅ Finalizar Pedido (Enviar Caixa)",
+                key=f"btn_finalizar_{row['ID_Devolucao']}",
+            ):
               idx_real = st.session_state.df_reversas[
                   st.session_state.df_reversas["ID_Devolucao"]
                   == row["ID_Devolucao"]
               ].index[0]
+
+              nome_arquivo = ""
+              if uploaded_file is not None:
+                nome_arquivo = uploaded_file.name
+                # Salvando localmente se desejado
+                os.makedirs("uploads", exist_ok=True)
+                with open(
+                    os.path.join("uploads", uploaded_file.name), "wb"
+                ) as f:
+                  f.write(uploaded_file.getbuffer())
+
               st.session_state.df_reversas.at[
                   idx_real, "Status"
-              ] = "🟢 Coletado / Autorizado"
+              ] = "✅ Finalizado pela Transportadora"
               st.session_state.df_reversas.at[
-                  idx_real, "Data_Autorizacao"
+                  idx_real, "Evidencia_Anexo"
+              ] = nome_arquivo
+              st.session_state.df_reversas.at[
+                  idx_real, "Data_Conclusao"
               ] = datetime.now().strftime("%d/%m/%Y %H:%M")
-              st.session_state.df_reversas.at[
-                  idx_real, "Entregador_Responsavel"
-              ] = str(nome_entregador).upper()
-              salvar_dados(st.session_state.df_reversas)
-              st.success("Retirada registrada com sucesso!")
-              st.rerun()
 
-          st.markdown("---")
-          obs_transp = st.text_input(
-              "Motivo da Ocorrência:",
-              key=f"obs_{row['ID_Devolucao']}",
-              placeholder="Ex: Cliente ausente",
-          )
-          if st.button(
-              "⚠️ Registrar Ocorrência", key=f"prob_{row['ID_Devolucao']}"
-          ):
-            if obs_transp:
-              idx_real = st.session_state.df_reversas[
-                  st.session_state.df_reversas["ID_Devolucao"]
-                  == row["ID_Devolucao"]
-              ].index[0]
-              st.session_state.df_reversas.at[
-                  idx_real, "Status"
-              ] = "🔴 Com Ocorrência/Problema"
-              st.session_state.df_reversas.at[
-                  idx_real, "Observacao_Transportadora"
-              ] = str(obs_transp)
               salvar_dados(st.session_state.df_reversas)
-              st.warning("Ocorrência enviada ao CD!")
+              st.success(
+                  "Pedido finalizado e enviado para análise no Centro de"
+                  " Distribuição!"
+              )
               st.rerun()
-            else:
-              st.error("Digite o motivo ao lado.")
   else:
-    st.info("🎉 Nenhuma ordem pendente nas rotas selecionadas.")
-
-  st.markdown("---")
-  st.markdown("### 📜 Histórico de Despachos Realizados")
-  concluidas = df_transp[df_transp["Status"] != "🟡 Aguardando Coleta"]
-  if not concluidas.empty:
-    st.dataframe(concluidas, use_container_width=True)
-  else:
-    st.info("Nenhum histórico operacional registrado.")
+    st.info(
+        "🎉 Nenhuma ordem ativa pendente na transportadora para as rotas"
+        " selecionadas."
+    )
 
 # ==========================================
-# ABA 3: INDICADORES & ALERTAS
+# ABA 3: ANALISAR PEDIDOS FINALIZADOS
+# ==========================================
+with aba_analise:
+  st.subheader("🔍 Central de Análise de Pedidos Finalizados")
+  st.markdown(
+      "Aqui aparecem os pedidos que a transportadora finalizou, enviou a caixa"
+      " e anexou as evidências para sua conferência."
+  )
+
+  df_geral = st.session_state.df_reversas
+  df_finalizados = df_geral[
+      df_geral["Status"] == "✅ Finalizado pela Transportadora"
+  ]
+
+  if not df_finalizados.empty:
+    st.markdown(
+        f"### 📥 Total de pedidos aguardando sua análise:"
+        f" {len(df_finalizados)}"
+    )
+
+    for index, row in df_finalizados.iterrows():
+      with st.container(border=True):
+        col_an1, col_an2 = st.columns([2, 1])
+        with col_an1:
+          st.markdown(
+              f"**ID:** `{row['ID_Devolucao']}` | **Data Conclusão:**"
+              f" `{row['Data_Conclusao']}`"
+          )
+          st.markdown(
+              f"📄 **Pedido:** `{row['Pedido']}` | **NF:** `{row['NF']}`"
+          )
+          st.markdown(
+              f"👤 **Cliente:** **{row['Cliente']}** (📍 {row['Cidade']})"
+          )
+          st.markdown(f"❓ **Motivo:** `{row['Motivo']}`")
+          st.markdown(f"📦 **Itens:** {row['Itens']}")
+          st.markdown(
+              f"🚚 **Motorista Responsável:** `{row['Entregador_Responsavel']}`"
+          )
+          if row["Evidencia_Anexo"]:
+            st.markdown(f"📎 **Arquivo Anexo:** `{row['Evidencia_Anexo']}`")
+          else:
+            st.markdown("📎 *Nenhum arquivo anexado pela transportadora.*")
+
+        with col_an2:
+          st.info("✅ Caixa entregue e processada pela transportadora.")
+  else:
+    st.info(
+        "Nenhum pedido finalizado pela transportadora aguardando análise no"
+        " momento."
+    )
+
+# ==========================================
+# ABA 4: INDICADORES & ALERTAS
 # ==========================================
 with aba_relatorios:
   st.subheader("📊 Dashboard de Performance Logística (KPIs)")
@@ -392,29 +412,25 @@ with aba_relatorios:
   if not df_geral.empty:
     total_geral = len(df_geral)
     total_aguardando = len(
-        df_geral[df_geral["Status"] == "🟡 Aguardando Coleta"]
+        df_geral[df_geral["Status"] == "🟡 Aguardando Verificação"]
     )
-    total_coletados = len(
-        df_geral[df_geral["Status"] == "🟢 Coletado / Autorizado"]
+    total_coleta_iniciada = len(
+        df_geral[df_geral["Status"] == "🚚 Coleta Iniciada"]
     )
-    total_resolvidos = len(
-        df_geral[df_geral["Status"] == "✅ Concluído / Resolvido no CD"]
-    )
-    total_problemas = len(
-        df_geral[df_geral["Status"] == "🔴 Com Ocorrência/Problema"]
+    total_finalizados = len(
+        df_geral[df_geral["Status"] == "✅ Finalizado pela Transportadora"]
     )
 
-    col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
-    col_m1.metric("Total Ordens", total_geral)
-    col_m2.metric("Aguardando Coleta", total_aguardando)
-    col_m3.metric("Em Trânsito", total_coletados)
-    col_m4.metric("Resolvidos no CD", total_resolvidos)
-    col_m5.metric("Ocorrências", total_problemas)
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    col_m1.metric("Total de Ordens", total_geral)
+    col_m2.metric("Aguardando Verificação", total_aguardando)
+    col_m3.metric("Coleta Iniciada", total_coleta_iniciada)
+    col_m4.metric("Finalizados (Para Análise)", total_finalizados)
   else:
     st.info("Insira dados para visualizar os indicadores do painel.")
 
 # ==========================================
-# ABA 4: GERADOR DE TERMO DE RESPONSABILIDADE (WORD)
+# ABA 5: GERADOR DE TERMO DE RESPONSABILIDADE (WORD)
 # ==========================================
 with aba_termo:
   st.subheader("📄 Geração de Documentação Oficial (Termo de Coleta)")
@@ -446,7 +462,9 @@ with aba_termo:
     st.text_input("Motivo", value=dados_linha["Motivo"], disabled=True)
     st.text_area("Itens", value=dados_linha["Itens"], disabled=True)
 
-    if st.button("📥 Baixar Termo em Formato Word (.docx)", use_container_width=True):
+    if st.button(
+        "📥 Baixar Termo em Formato Word (.docx)", use_container_width=True
+    ):
       doc = Document()
 
       if os.path.exists("logo.png"):
