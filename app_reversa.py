@@ -86,7 +86,7 @@ aba_gestor, aba_transportadora, aba_analise, aba_relatorios, aba_termo = st.tabs
     "🚚 2. Portal da Transportadora",
     "🔍 3. Analisar Pedidos Finalizados",
     "📊 4. Dashboard & Indicadores",
-    "📄 5. Emissão de Termos / Checklist",
+    "📄 5. Emissão de Termos (Word)",
 ])
 
 # ==========================================
@@ -479,13 +479,13 @@ with aba_relatorios:
     st.info("Insira dados para visualizar os indicadores do painel.")
 
 # ==========================================
-# ABA 5: EMISSÃO DE TERMOS / CHECKLIST (FORMATO VISUAL E SIMPLIFICADO)
+# ABA 5: GERADOR DE TERMO / CHECKLIST (PADRÃO ANTIGO + ITENS EM CHECKLIST)
 # ==========================================
 with aba_termo:
-  st.subheader("📄 Emissão de Checklist de Conferência (Word)")
+  st.subheader("📄 Geração de Documentação Oficial (Termo & Checklist)")
   st.markdown(
-      "Gere o termo em formato de **checklist visual** para facilitar a"
-      " conferência física dos produtos."
+      "Emita o termo padrão de responsabilidade com a lista de itens convertida"
+      " em checklist de conferência."
   )
 
   df_termo_geral = st.session_state.df_reversas
@@ -493,9 +493,9 @@ with aba_termo:
   if not df_termo_geral.empty:
     lista_ids = df_termo_geral["ID_Devolucao"].tolist()
     id_escolhido = st.selectbox(
-        "Selecione o ID da Ordem para Gerar o Checklist:",
+        "Selecione o ID da Ordem para Gerar o Documento:",
         lista_ids,
-        key="sel_id_chk",
+        key="sel_id_termo",
     )
 
     dados_linha = df_termo_geral[
@@ -503,7 +503,7 @@ with aba_termo:
     ].iloc[0]
 
     st.markdown("---")
-    st.markdown("#### 🔍 Prévia dos Dados do Checklist:")
+    st.markdown("#### 🔍 Prévia dos Dados para Impressão:")
     c_t1, c_t2, c_t3 = st.columns(3)
     c_t1.text_input("ID", value=dados_linha["ID_Devolucao"], disabled=True)
     c_t2.text_input("Pedido", value=dados_linha["Pedido"], disabled=True)
@@ -514,178 +514,96 @@ with aba_termo:
     st.text_area("Itens", value=dados_linha["Itens"], disabled=True)
 
     if st.button(
-        "📥 Baixar Checklist em Formato Word (.docx)",
+        "📥 Baixar Termo em Formato Word (.docx)",
         use_container_width=True,
-        key="btn_dl_chk",
+        key="btn_dl_termo",
     ):
       doc = Document()
 
-      # Margens
-      for section in doc.sections:
-        section.top_margin = Inches(0.8)
-        section.bottom_margin = Inches(0.8)
-        section.left_margin = Inches(0.8)
-        section.right_margin = Inches(0.8)
+      if os.path.exists("logo.png"):
+        try:
+          doc.add_picture("logo.png", width=Inches(2.0))
+        except:
+          pass
 
-      COR_PRINCIPAL = RGBColor(26, 82, 118)
-      COR_CINZA = RGBColor(100, 100, 100)
-
-      # Título Principal
+      # Título do Termo Original
       p_titulo = doc.add_paragraph()
-      p_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
-      r_titulo = p_titulo.add_run(
-          "CHECKLIST DE CONFERÊNCIA E RECEBIMENTO\nLOGÍSTICA REVERSA - RMC"
-          " MARIANO"
+      run_titulo = p_titulo.add_run(
+          "GRUPO RMC MARIANO - TERMO DE RESPONSABILIDADE E CHECKLIST DE"
+          " DEVOLUÇÃO"
       )
-      r_titulo.bold = True
-      r_titulo.font.size = Pt(15)
-      r_titulo.font.color.rgb = COR_PRINCIPAL
+      run_titulo.bold = True
+      run_titulo.font.size = Pt(13)
 
-      doc.add_paragraph()
+      doc.add_paragraph(f"Data de Emissão: {dados_linha['Data_Registro']}")
+      doc.add_paragraph(f"ID da Ocorrência: {dados_linha['ID_Devolucao']}")
+      doc.add_paragraph(f"Nº do Pedido: {dados_linha['Pedido']}")
+      doc.add_paragraph(f"Nota Fiscal: {dados_linha['NF']}")
+      doc.add_paragraph(f"Revendedora / Cliente: {dados_linha['Cliente']}")
+      doc.add_paragraph(f"Cidade: {dados_linha['Cidade']}")
+      doc.add_paragraph(f"Motivo da Devolução: {dados_linha['Motivo']}")
 
-      # Bloco 1: Tabela de Identificação
-      tabela_id = doc.add_table(rows=2, cols=2)
-      tabela_id.alignment = WD_TABLE_ALIGNMENT.CENTER
-
-      dados_id_box = [
-          [
-              f"ID da Ordem: {dados_linha['ID_Devolucao']}",
-              f"Data de Registro: {dados_linha['Data_Registro']}",
-          ],
-          [
-              f"Transportadora: {dados_linha['Transportadora']}",
-              f"Motorista / Entregador:"
-              f" {dados_linha['Entregador_Responsavel'] or 'Não informado'}",
-          ],
-      ]
-
-      for row_idx, row_data in enumerate(dados_id_box):
-        for col_idx, text in enumerate(row_data):
-          cell = tabela_id.cell(row_idx, col_idx)
-          cell.text = text
-          shading_elm = parse_xml(
-              r'<w:shd {} w:fill="F2F4F4"/>'.format(nsdecls("w"))
-          )
-          cell._tc.get_or_add_tcPr().append(shading_elm)
-
-      doc.add_paragraph()
-
-      # Bloco 2: Checklist Operacional Visual
-      p_sec1 = doc.add_paragraph()
-      r_sec1 = p_sec1.add_run(
-          "1. ITENS DE VERIFICAÇÃO VISUAL (Tique o que foi conferido)"
+      doc.add_paragraph(
+          "\nITENS A SEREM CONFERIDOS E COLETADOS (CHECKLIST DE RECEBIMENTO):"
       )
-      r_sec1.bold = True
-      r_sec1.font.size = Pt(11)
-      r_sec1.font.color.rgb = COR_PRINCIPAL
 
-      itens_checklist = [
-          "A embalagem externa está lacrada e sem sinais de violação?",
-          "Os produtos estão sem vazamentos, amassados ou avarias físicas?",
-          "A quantidade de volumes confere com o documento de coleta?",
-          (
-              "As fotos/vídeos de evidência foram verificados no painel do"
-              " sistema?"
-          ),
-      ]
+      # Transforma os itens digitados pelo usuário em linhas de checklist com caixas [ ]
+      texto_itens = str(dados_linha["Itens"]).strip()
+      if texto_itens:
+        linhas_itens = [
+            linha.strip()
+            for linha in texto_itens.replace(",", "\n").split("\n")
+            if linha.strip()
+        ]
 
-      tabela_chk = doc.add_table(rows=len(itens_checklist) + 1, cols=2)
-      tabela_chk.alignment = WD_TABLE_ALIGNMENT.CENTER
+        tabela_itens = doc.add_table(rows=len(linhas_itens) + 1, cols=2)
+        tabela_itens.alignment = WD_TABLE_ALIGNMENT.CENTER
 
-      hdr_cells = tabela_chk.rows[0].cells
-      hdr_cells[0].text = "Pergunta / Verificação"
-      hdr_cells[1].text = "STATUS ([ ] SIM  /  [ ] NÃO)"
-      hdr_cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        hdr_cells = tabela_itens.rows[0].cells
+        hdr_cells[0].text = "Descrição do Item / SKU"
+        hdr_cells[1].text = "STATUS ([ ] OK  /  [ ] FALTA)"
+        hdr_cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-      for cell in hdr_cells:
-        shd = parse_xml(r'<w:shd {} w:fill="1A5276"/>'.format(nsdecls("w")))
-        cell._tc.get_or_add_tcPr().append(shd)
-        for paragraph in cell.paragraphs:
-          for run in paragraph.runs:
-            run.font.color.rgb = RGBColor(255, 255, 255)
-            run.bold = True
+        for cell in hdr_cells:
+          shd = parse_xml(r'<w:shd {} w:fill="1A5276"/>'.format(nsdecls("w")))
+          cell._tc.get_or_add_tcPr().append(shd)
+          for paragraph in cell.paragraphs:
+            for run in paragraph.runs:
+              run.font.color.rgb = RGBColor(255, 255, 255)
+              run.bold = True
 
-      for i, item in enumerate(itens_checklist):
-        row_cells = tabela_chk.rows[i + 1].cells
-        row_cells[0].text = item
-        row_cells[1].text = "[   ] SIM      [   ] NÃO"
-        row_cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for idx, item_txt in enumerate(linhas_itens):
+          r_cells = tabela_itens.rows[idx + 1].cells
+          r_cells[0].text = item_txt
+          r_cells[1].text = "[   ] CONFERIDO      [   ] AVARIADO"
+          r_cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+      else:
+        doc.add_paragraph("[Nenhum item específico detalhado]")
 
-      doc.add_paragraph()
-
-      # Bloco 3: Resumo por Marcas
-      p_sec2 = doc.add_paragraph()
-      r_sec2 = p_sec2.add_run("2. CONTAGEM DE VOLUMES POR MARCA")
-      r_sec2.bold = True
-      r_sec2.font.size = Pt(11)
-      r_sec2.font.color.rgb = COR_PRINCIPAL
-
-      marcas = ["O Boticário", "Eudora", "Quem Disse, Berenice?", "O.U.i."]
-      tabela_marcas = doc.add_table(rows=len(marcas) + 1, cols=3)
-      tabela_marcas.alignment = WD_TABLE_ALIGNMENT.CENTER
-
-      m_hdr = tabela_marcas.rows[0].cells
-      m_hdr[0].text = "Marca / Linha"
-      m_hdr[1].text = "Qtd Informada"
-      m_hdr[2].text = "Qtd Conferida (CD)"
-
-      for cell in m_hdr:
-        shd = parse_xml(r'<w:shd {} w:fill="1A5276"/>'.format(nsdecls("w")))
-        cell._tc.get_or_add_tcPr().append(shd)
-        for paragraph in cell.paragraphs:
-          for run in paragraph.runs:
-            run.font.color.rgb = RGBColor(255, 255, 255)
-            run.bold = True
-
-      for idx, marca in enumerate(marcas):
-        r_cells = tabela_marcas.rows[idx + 1].cells
-        r_cells[0].text = marca
-        r_cells[1].text = "_______"
-        r_cells[2].text = "_______"
-        r_cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-        r_cells[2].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-      doc.add_paragraph()
-
-      # Bloco 4: Assinaturas
-      p_sec3 = doc.add_paragraph()
-      r_sec3 = p_sec3.add_run("3. VALIDAÇÃO E ASSINATURAS")
-      r_sec3.bold = True
-      r_sec3.font.size = Pt(11)
-      r_sec3.font.color.rgb = COR_PRINCIPAL
-
-      p_obs = doc.add_paragraph()
-      p_obs.add_run(
-          f"Cliente / Revendedora: {dados_linha['Cliente']} | Motivos:"
-          f" {dados_linha['Motivo']}\n\n"
+      doc.add_paragraph(
+          "\nDeclaro para os devidos fins que os produtos acima descritos"
+          " estão sendo entregues à Transportadora José Augusto para retorno"
+          " ao Centro de Distribuição do Grupo RMC Mariano."
       )
-      p_obs.runs[0].font.size = Pt(9.5)
-      p_obs.runs[0].font.color.rgb = COR_CINZA
 
-      tabela_ass = doc.add_table(rows=2, cols=2)
-      tabela_ass.alignment = WD_TABLE_ALIGNMENT.CENTER
-      tabela_ass.cell(0, 0).text = (
-          "____________________________________\nResponsável pela Coleta /"
-          " Entregador"
-      )
-      tabela_ass.cell(0, 1).text = (
-          "____________________________________\nConferente / Operador do CD"
-      )
-      tabela_ass.cell(1, 0).text = "Data: ____/____/________"
-      tabela_ass.cell(1, 1).text = "Data: ____/____/________"
+      doc.add_paragraph("\n\n__________________________________________________")
+      doc.add_paragraph(f"Assinatura da Revendedora: {dados_linha['Cliente']}")
+
+      doc.add_paragraph("__________________________________________________")
+      doc.add_paragraph("Assinatura / Carimbo da Transportadora José Augusto")
 
       buffer = io.BytesIO()
       doc.save(buffer)
       buffer.seek(0)
 
       st.download_button(
-          label="💾 Clique aqui para baixar o Checklist em Word",
+          label="💾 Clique aqui para baixar o documento Word gerado",
           data=buffer,
-          file_name=f"Checklist_Logistica_{dados_linha['ID_Devolucao']}.docx",
+          file_name=f"Termo_Devolucao_{dados_linha['ID_Devolucao']}.docx",
           mime=(
               "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           ),
       )
-      st.success("Checklist gerado com sucesso!")
+      st.success("Documento gerado com sucesso!")
   else:
     st.info("Insira ordens nas abas anteriores para gerar documentos.")
