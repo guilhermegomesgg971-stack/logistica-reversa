@@ -1,10 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import io
 import os
 from docx import Document
 from docx.shared import Inches, Pt
 import pandas as pd
-import pytz
 import streamlit as st
 
 # Configuração da Página & Tema Logístico
@@ -18,10 +17,10 @@ st.set_page_config(
 DB_FILE = "dados_reversas.csv"
 
 
-# Função para pegar a data/hora atual ajustada para o Horário de Brasília
+# Função para pegar o horário exato de Brasília (-3 horas do UTC) sem erros de biblioteca
 def obter_horario_brasilia():
-  fuso_br = pytz.timezone("America/Sao_Paulo")
-  return datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
+  fuso_brasilia = timezone(timedelta(hours=-3))
+  return datetime.now(fuso_brasilia).strftime("%d/%m/%Y %H:%M")
 
 
 # Função para carregar os dados com segurança e tipos corretos
@@ -135,7 +134,8 @@ with aba_gestor:
             "⚠️ Preencha os campos obrigatórios (Nº do Pedido e Cliente)!"
         )
       else:
-        novo_id = f"REV-{datetime.now(pytz.timezone('America/Sao_Paulo')).strftime('%Y%m%d%H%M%S')}"
+        fuso_brasilia = timezone(timedelta(hours=-3))
+        novo_id = f"REV-{datetime.now(fuso_brasilia).strftime('%Y%m%d%H%M%S')}"
         nova_linha = {
             "ID_Devolucao": str(novo_id),
             "Data_Registro": obter_horario_brasilia(),
@@ -278,7 +278,7 @@ with aba_transportadora:
         with col_b:
           st.markdown("##### ✍️ Ações da Transportadora")
 
-          # Ação 1: Iniciar Coleta (Registra exatamente a hora atual do Brasil)
+          # Ação 1: Iniciar Coleta
           if row["Status"] == "🟡 Aguardando Verificação":
             nome_entregador = st.text_input(
                 "Motorista Responsável:",
