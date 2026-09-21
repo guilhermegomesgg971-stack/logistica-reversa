@@ -1,14 +1,21 @@
 from datetime import datetime, timedelta, timezone
 import io
 import os
-from docx import Document
-from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml import parse_xml
-from docx.oxml.ns import nsdecls
-from docx.shared import Inches, Pt, RGBColor
 import pandas as pd
 import streamlit as st
+
+# Importações seguras para o gerador do Word (evita tela branca caso a biblioteca falhe)
+try:
+  from docx import Document
+  from docx.enum.table import WD_TABLE_ALIGNMENT
+  from docx.enum.text import WD_ALIGN_PARAGRAPH
+  from docx.oxml import parse_xml
+  from docx.oxml.ns import nsdecls
+  from docx.shared import Inches, Pt, RGBColor
+
+  HAS_DOCX = True
+except ImportError:
+  HAS_DOCX = False
 
 # Configuração da Página & Tema Logístico
 st.set_page_config(
@@ -21,7 +28,7 @@ st.set_page_config(
 DB_FILE = "dados_reversas.csv"
 
 
-# Função para pegar o horário exato de Brasília (-3 horas do UTC) sem erros de biblioteca
+# Função para pegar o horário exato de Brasília (-3 horas do UTC)
 def obter_horario_brasilia():
   fuso_brasilia = timezone(timedelta(hours=-3))
   return datetime.now(fuso_brasilia).strftime("%d/%m/%Y %H:%M")
@@ -42,22 +49,24 @@ def carregar_dados():
       "Status",
       "Data_Inicio_Coleta",
       "Entregador_Responsavel",
-      "Observacao_Transportadora",  # Nova coluna adicionada
+      "Observacao_Transportadora",
       "Evidencia_Anexo",
       "Data_Conclusao",
   ]
 
   if os.path.exists(DB_FILE):
-    df = pd.read_csv(DB_FILE, dtype=str)
-    for col in colunas_necessarias:
-      if col not in df.columns:
-        df[col] = ""
-      else:
-        df[col] = df[col].fillna("")
-    return df
+    try:
+      df = pd.read_csv(DB_FILE, dtype=str)
+      for col in colunas_necessarias:
+        if col not in df.columns:
+          df[col] = ""
+        else:
+          df[col] = df[col].fillna("")
+      return df
+    except Exception:
+      return pd.DataFrame(columns=colunas_necessarias, dtype=str)
   else:
-    df_padrao = pd.DataFrame(columns=colunas_necessarias, dtype=str)
-    return df_padrao
+    return pd.DataFrame(columns=colunas_necessarias, dtype=str)
 
 
 # Função para salvar os dados
@@ -65,7 +74,7 @@ def salvar_dados(df):
   df.to_csv(DB_FILE, index=False)
 
 
-# Carrega o banco de dados na sessão
+# Carrega o banco de dados na sessão do Streamlit
 if "df_reversas" not in st.session_state:
   st.session_state.df_reversas = carregar_dados()
 
@@ -512,7 +521,7 @@ with aba_relatorios:
     st.info("Insira dados para visualizar os indicadores do painel.")
 
 # ==========================================
-# ABA 5: GERADOR DE TERMO / CHECKLIST (PADRÃO ANTIGO + ITENS EM CHECKLIST)
+# ABA 5: GERADOR DE TERMO / CHECKLIST
 # ==========================================
 with aba_termo:
   st.subheader("📄 Geração de Documentação Oficial (Termo & Checklist)")
@@ -520,6 +529,13 @@ with aba_termo:
       "Emita o termo padrão de responsabilidade com a lista de itens convertida"
       " em checklist de conferência."
   )
+
+  if not HAS_DOCX:
+    st.error(
+        "⚠️ A biblioteca `python-docx` não está instalada no ambiente. Para"
+        " habilitar o download em Word, rode no terminal: `pip install"
+        " python-docx`"
+    )
 
   df_termo_geral = st.session_state.df_reversas
 
@@ -552,7 +568,7 @@ with aba_termo:
           disabled=True,
       )
 
-    if st.button(
+    if HAS_DOCX and st.button(
         "📥 Baixar Termo em Formato Word (.docx)",
         use_container_width=True,
         key="btn_dl_termo",
