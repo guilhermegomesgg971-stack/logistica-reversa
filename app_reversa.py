@@ -215,8 +215,8 @@ with aba_transportadora:
       "🚚 Portal do Operador Logístico (Verificação, Coleta e Envio de Caixa)"
   )
   st.markdown(
-      "Gerencie os pedidos aguardando verificação, inicie a coleta com data e"
-      " envie as evidências e a caixa finalizada."
+      "Gerencie os pedidos aguardando verificação, autorize e registre a"
+      " data/hora da coleta pelo entregador."
   )
 
   transp_selecionada = "Transportadora José Augusto"
@@ -263,14 +263,15 @@ with aba_transportadora:
           st.markdown(f"📦 **Itens a Coletar:** {row['Itens']}")
           if row["Data_Inicio_Coleta"]:
             st.markdown(
-                f"⏱️ **Início da Coleta:** `{row['Data_Inicio_Coleta']}` por"
+                f"⏱️ **Autorizado/Início da Coleta:**"
+                f" `{row['Data_Inicio_Coleta']}` por"
                 f" `{row['Entregador_Responsavel']}`"
             )
 
         with col_b:
           st.markdown("##### ✍️ Ações da Transportadora")
 
-          # Ação 1: Iniciar Coleta
+          # Ação 1: Iniciar Coleta (Registra automaticamente a data/hora da autorização/envio do entregador)
           if row["Status"] == "🟡 Aguardando Verificação":
             nome_entregador = st.text_input(
                 "Motorista Responsável:",
@@ -278,7 +279,8 @@ with aba_transportadora:
                 placeholder="Nome do motorista",
             )
             if st.button(
-                "🚀 Iniciar Coleta", key=f"btn_iniciar_{row['ID_Devolucao']}"
+                "🚀 Autorizar e Iniciar Coleta",
+                key=f"btn_iniciar_{row['ID_Devolucao']}",
             ):
               if not nome_entregador.strip():
                 st.error("⚠️ Informe o nome do motorista!")
@@ -297,7 +299,9 @@ with aba_transportadora:
                     idx_real, "Entregador_Responsavel"
                 ] = str(nome_entregador).upper()
                 salvar_dados(st.session_state.df_reversas)
-                st.success("Coleta iniciada com sucesso!")
+                st.success(
+                    "Coleta autorizada e data/hora registrada com sucesso!"
+                )
                 st.rerun()
 
           # Ação 2: Finalizar Pedido com anexo de foto/vídeo
@@ -386,6 +390,10 @@ with aba_analise:
           st.markdown(f"❓ **Motivo:** `{row['Motivo']}`")
           st.markdown(f"📦 **Itens:** {row['Itens']}")
           st.markdown(
+              f"⏱️ **Início/Autorização da Coleta:**"
+              f" `{row['Data_Inicio_Coleta']}`"
+          )
+          st.markdown(
               f"🚚 **Motorista Responsável:** `{row['Entregador_Responsavel']}`"
           )
 
@@ -408,7 +416,6 @@ with aba_analise:
               elif extensao in ["mp4", "mov"]:
                 st.video(caminho_arquivo)
 
-              # Botão para baixar diretamente o arquivo se quiser salvar no PC
               with open(caminho_arquivo, "rb") as file_to_download:
                 st.download_button(
                     label="📥 Baixar Evidência",
