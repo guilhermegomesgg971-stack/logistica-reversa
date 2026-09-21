@@ -4,6 +4,7 @@ import os
 from docx import Document
 from docx.shared import Inches, Pt
 import pandas as pd
+import pytz
 import streamlit as st
 
 # Configuração da Página & Tema Logístico
@@ -15,6 +16,12 @@ st.set_page_config(
 
 # Arquivo local para salvar os dados
 DB_FILE = "dados_reversas.csv"
+
+
+# Função para pegar a data/hora atual ajustada para o Horário de Brasília
+def obter_horario_brasilia():
+  fuso_br = pytz.timezone("America/Sao_Paulo")
+  return datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
 
 
 # Função para carregar os dados com segurança e tipos corretos
@@ -128,10 +135,10 @@ with aba_gestor:
             "⚠️ Preencha os campos obrigatórios (Nº do Pedido e Cliente)!"
         )
       else:
-        novo_id = f"REV-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        novo_id = f"REV-{datetime.now(pytz.timezone('America/Sao_Paulo')).strftime('%Y%m%d%H%M%S')}"
         nova_linha = {
             "ID_Devolucao": str(novo_id),
-            "Data_Registro": datetime.now().strftime("%d/%m/%Y %H:%M"),
+            "Data_Registro": obter_horario_brasilia(),
             "Pedido": str(num_pedido),
             "NF": str(num_nf) if num_nf else "N/A",
             "Cliente": str(cliente).upper(),
@@ -271,7 +278,7 @@ with aba_transportadora:
         with col_b:
           st.markdown("##### ✍️ Ações da Transportadora")
 
-          # Ação 1: Iniciar Coleta (Registra automaticamente a data/hora da autorização/envio do entregador)
+          # Ação 1: Iniciar Coleta (Registra exatamente a hora atual do Brasil)
           if row["Status"] == "🟡 Aguardando Verificação":
             nome_entregador = st.text_input(
                 "Motorista Responsável:",
@@ -294,13 +301,14 @@ with aba_transportadora:
                 ] = "🚚 Coleta Iniciada"
                 st.session_state.df_reversas.at[
                     idx_real, "Data_Inicio_Coleta"
-                ] = datetime.now().strftime("%d/%m/%Y %H:%M")
+                ] = obter_horario_brasilia()
                 st.session_state.df_reversas.at[
                     idx_real, "Entregador_Responsavel"
                 ] = str(nome_entregador).upper()
                 salvar_dados(st.session_state.df_reversas)
                 st.success(
-                    "Coleta autorizada e data/hora registrada com sucesso!"
+                    "Coleta autorizada e horário oficial registrado com"
+                    " sucesso!"
                 )
                 st.rerun()
 
@@ -338,7 +346,7 @@ with aba_transportadora:
               ] = nome_arquivo
               st.session_state.df_reversas.at[
                   idx_real, "Data_Conclusao"
-              ] = datetime.now().strftime("%d/%m/%Y %H:%M")
+              ] = obter_horario_brasilia()
 
               salvar_dados(st.session_state.df_reversas)
               st.success(
