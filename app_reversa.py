@@ -42,6 +42,7 @@ def carregar_dados():
       "Status",
       "Data_Inicio_Coleta",
       "Entregador_Responsavel",
+      "Observacao_Transportadora",  # Nova coluna adicionada
       "Evidencia_Anexo",
       "Data_Conclusao",
   ]
@@ -153,6 +154,7 @@ with aba_gestor:
             "Status": "🟡 Aguardando Verificação",
             "Data_Inicio_Coleta": "",
             "Entregador_Responsavel": "",
+            "Observacao_Transportadora": "",
             "Evidencia_Anexo": "",
             "Data_Conclusao": "",
         }
@@ -227,7 +229,7 @@ with aba_transportadora:
   )
   st.markdown(
       "Gerencie os pedidos aguardando verificação, autorize e registre a"
-      " data/hora da coleta pelo entregador."
+      " data/hora da coleta, previsões e ocorrências."
   )
 
   transp_selecionada = "Transportadora José Augusto"
@@ -278,6 +280,11 @@ with aba_transportadora:
                 f" `{row['Data_Inicio_Coleta']}` por"
                 f" `{row['Entregador_Responsavel']}`"
             )
+          if row["Observacao_Transportadora"]:
+            st.markdown(
+                f"💬 **Obs/Previsão da Transportadora:**"
+                f" `{row['Observacao_Transportadora']}`"
+            )
 
         with col_b:
           st.markdown("##### ✍️ Ações da Transportadora")
@@ -289,6 +296,12 @@ with aba_transportadora:
                 key=f"ent_{row['ID_Devolucao']}",
                 placeholder="Nome do motorista",
             )
+            obs_transp_inicial = st.text_area(
+                "Previsão / Observações da Rota:",
+                key=f"obs_ini_{row['ID_Devolucao']}",
+                placeholder="Ex: Previsão de coleta para amanhã às 14h...",
+            )
+
             if st.button(
                 "🚀 Autorizar e Iniciar Coleta",
                 key=f"btn_iniciar_{row['ID_Devolucao']}",
@@ -309,6 +322,9 @@ with aba_transportadora:
                 st.session_state.df_reversas.at[
                     idx_real, "Entregador_Responsavel"
                 ] = str(nome_entregador).upper()
+                st.session_state.df_reversas.at[
+                    idx_real, "Observacao_Transportadora"
+                ] = str(obs_transp_inicial)
                 salvar_dados(st.session_state.df_reversas)
                 st.success(
                     "Coleta autorizada e horário oficial registrado com"
@@ -316,8 +332,17 @@ with aba_transportadora:
                 )
                 st.rerun()
 
-          # Ação 2: Finalizar Pedido com anexo de foto/vídeo
+          # Ação 2: Finalizar Pedido com anexo de foto/vídeo e atualização de obs
           if row["Status"] == "🚚 Coleta Iniciada":
+            obs_transp_final = st.text_area(
+                "Atualizar Previsão / Relatório de Conclusão:",
+                value=row["Observacao_Transportadora"],
+                key=f"obs_fin_{row['ID_Devolucao']}",
+                placeholder=(
+                    "Ex: Coletado com sucesso, caixa em trânsito para o CD..."
+                ),
+            )
+
             uploaded_file = st.file_uploader(
                 "Anexar Foto ou Vídeo (Evidência):",
                 type=["png", "jpg", "jpeg", "mp4", "mov"],
@@ -346,6 +371,9 @@ with aba_transportadora:
                   idx_real, "Status"
               ] = "✅ Finalizado pela Transportadora"
               st.session_state.df_reversas.at[
+                  idx_real, "Observacao_Transportadora"
+              ] = str(obs_transp_final)
+              st.session_state.df_reversas.at[
                   idx_real, "Evidencia_Anexo"
               ] = nome_arquivo
               st.session_state.df_reversas.at[
@@ -370,8 +398,8 @@ with aba_transportadora:
 with aba_analise:
   st.subheader("🔍 Central de Análise de Pedidos Finalizados")
   st.markdown(
-      "Aqui você visualiza os dados, confere o histórico e analisa as"
-      " evidências (fotos/vídeos) enviadas pela transportadora."
+      "Aqui você visualiza os dados, confere o histórico, as previsões da"
+      " transportadora e as evidências (fotos/vídeos)."
   )
 
   df_geral = st.session_state.df_reversas
@@ -408,6 +436,11 @@ with aba_analise:
           st.markdown(
               f"🚚 **Motorista Responsável:** `{row['Entregador_Responsavel']}`"
           )
+          if row["Observacao_Transportadora"]:
+            st.markdown(
+                f"💬 **Relatório/Previsão da Transportadora:**"
+                f" `{row['Observacao_Transportadora']}`"
+            )
 
         with col_an2:
           st.markdown("##### 📎 Evidência Anexada")
@@ -512,6 +545,12 @@ with aba_termo:
     st.text_input("Cliente", value=dados_linha["Cliente"], disabled=True)
     st.text_input("Motivo", value=dados_linha["Motivo"], disabled=True)
     st.text_area("Itens", value=dados_linha["Itens"], disabled=True)
+    if dados_linha["Observacao_Transportadora"]:
+      st.text_area(
+          "Obs da Transportadora",
+          value=dados_linha["Observacao_Transportadora"],
+          disabled=True,
+      )
 
     if st.button(
         "📥 Baixar Termo em Formato Word (.docx)",
@@ -542,6 +581,12 @@ with aba_termo:
       doc.add_paragraph(f"Revendedora / Cliente: {dados_linha['Cliente']}")
       doc.add_paragraph(f"Cidade: {dados_linha['Cidade']}")
       doc.add_paragraph(f"Motivo da Devolução: {dados_linha['Motivo']}")
+
+      if dados_linha["Observacao_Transportadora"]:
+        doc.add_paragraph(
+            f"Observação / Previsão da Transportadora:"
+            f" {dados_linha['Observacao_Transportadora']}"
+        )
 
       doc.add_paragraph(
           "\nITENS A SEREM CONFERIDOS E COLETADOS (CHECKLIST DE RECEBIMENTO):"
