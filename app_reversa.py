@@ -300,7 +300,7 @@ with aba_transportadora:
                 st.success("Coleta iniciada com sucesso!")
                 st.rerun()
 
-          # Ação 2: Finalizar Pedido com anexo de foto/vídeo quando já iniciada a coleta
+          # Ação 2: Finalizar Pedido com anexo de foto/vídeo
           if row["Status"] == "🚚 Coleta Iniciada":
             uploaded_file = st.file_uploader(
                 "Anexar Foto ou Vídeo (Evidência):",
@@ -320,7 +320,6 @@ with aba_transportadora:
               nome_arquivo = ""
               if uploaded_file is not None:
                 nome_arquivo = uploaded_file.name
-                # Salvando localmente se desejado
                 os.makedirs("uploads", exist_ok=True)
                 with open(
                     os.path.join("uploads", uploaded_file.name), "wb"
@@ -350,13 +349,13 @@ with aba_transportadora:
     )
 
 # ==========================================
-# ABA 3: ANALISAR PEDIDOS FINALIZADOS
+# ABA 3: ANALISAR PEDIDOS FINALIZADOS (COM VISUALIZAÇÃO DE ANEXOS)
 # ==========================================
 with aba_analise:
   st.subheader("🔍 Central de Análise de Pedidos Finalizados")
   st.markdown(
-      "Aqui aparecem os pedidos que a transportadora finalizou, enviou a caixa"
-      " e anexou as evidências para sua conferência."
+      "Aqui você visualiza os dados, confere o histórico e analisa as"
+      " evidências (fotos/vídeos) enviadas pela transportadora."
   )
 
   df_geral = st.session_state.df_reversas
@@ -372,10 +371,10 @@ with aba_analise:
 
     for index, row in df_finalizados.iterrows():
       with st.container(border=True):
-        col_an1, col_an2 = st.columns([2, 1])
+        col_an1, col_an2 = st.columns([2, 1.5])
         with col_an1:
           st.markdown(
-              f"**ID:** `{row['ID_Devolucao']}` | **Data Conclusão:**"
+              f"**ID:** `{row['ID_Devolucao']}` | **Conclusão:**"
               f" `{row['Data_Conclusao']}`"
           )
           st.markdown(
@@ -389,13 +388,44 @@ with aba_analise:
           st.markdown(
               f"🚚 **Motorista Responsável:** `{row['Entregador_Responsavel']}`"
           )
-          if row["Evidencia_Anexo"]:
-            st.markdown(f"📎 **Arquivo Anexo:** `{row['Evidencia_Anexo']}`")
-          else:
-            st.markdown("📎 *Nenhum arquivo anexado pela transportadora.*")
 
         with col_an2:
-          st.info("✅ Caixa entregue e processada pela transportadora.")
+          st.markdown("##### 📎 Evidência Anexada")
+          arquivo_anexado = row["Evidencia_Anexo"]
+
+          if arquivo_anexado:
+            st.success(f"Arquivo: {arquivo_anexado}")
+            caminho_arquivo = os.path.join("uploads", arquivo_anexado)
+
+            if os.path.exists(caminho_arquivo):
+              extensao = arquivo_anexado.split(".")[-1].lower()
+              if extensao in ["png", "jpg", "jpeg"]:
+                st.image(
+                    caminho_arquivo,
+                    caption="Foto enviada pelo entregador",
+                    use_container_width=True,
+                )
+              elif extensao in ["mp4", "mov"]:
+                st.video(caminho_arquivo)
+
+              # Botão para baixar diretamente o arquivo se quiser salvar no PC
+              with open(caminho_arquivo, "rb") as file_to_download:
+                st.download_button(
+                    label="📥 Baixar Evidência",
+                    data=file_to_download,
+                    file_name=arquivo_anexado,
+                    key=f"dl_{row['ID_Devolucao']}",
+                )
+            else:
+              st.warning(
+                  "⚠️ O registro indica um anexo, mas o arquivo físico não foi"
+                  " encontrado na pasta do sistema."
+              )
+          else:
+            st.info(
+                "Nenhum arquivo de foto ou vídeo foi anexado pela transportadora"
+                " neste pedido."
+            )
   else:
     st.info(
         "Nenhum pedido finalizado pela transportadora aguardando análise no"
